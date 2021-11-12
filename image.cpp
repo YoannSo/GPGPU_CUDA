@@ -7,7 +7,6 @@
 #include <vector>
 #include <iostream>
 
-using namespace std;
 
 Image::Image( const int p_width, const int p_height, const int p_nbChannels ) 
     : _width( p_width ), _height( p_height ), _nbChannels( p_nbChannels )
@@ -21,7 +20,7 @@ Image::~Image() { delete[] _pixels; }
 void Image::load( const std::string & p_path )
 {
     _pixels = stbi_load( p_path.c_str(), &_width, &_height, &_nbChannels, 0 );
-    printf("%d %d %d",this->_width,this->_height,this->_nbChannels);
+    printf("%d %d %d \n",this->_width,this->_height,this->_nbChannels);
         
     for(int i=0;i<_width*_height*_nbChannels;i++){
       this->_pixelRGB.push_back((int)_pixels[i]);
@@ -30,7 +29,7 @@ void Image::load( const std::string & p_path )
     if ( _pixels == nullptr )
     {
         std::string msg = "Failed to load image: " + p_path + "\n" + stbi_failure_reason();
-        throw std::exception( msg.c_str() );
+        //throw std::exception( msg.c_str() );
     }
 }
 
