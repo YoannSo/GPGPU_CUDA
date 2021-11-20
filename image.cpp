@@ -41,3 +41,12 @@ vector<int> Image::getPixelRGB( )
 {
     return this->_pixelRGB;
 }
+void Image::setPixels(){
+    this->_pixels=new unsigned char[ _width * _height * _nbChannels ];
+    for(int i=0;i<_width*_height*_nbChannels;i++){
+        _pixels[i]=_pixelRGB.data()[i];
+    }
+    }
+void Image::setRGB(vector<int> rgb){
+    this->_pixelRGB=rgb;
+}

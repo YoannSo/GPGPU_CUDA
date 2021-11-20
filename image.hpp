@@ -17,7 +17,8 @@ class Image
 	void load( const string & p_path );
 	void save( const string & p_path ) const;
 	std::vector < int > getPixelRGB();
-
+	void setPixels();
+	void setRGB(std::vector<int> rgb);
   public: // All public!
 	int				_width		= 0;
 	int				_height		= 0;
