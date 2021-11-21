@@ -142,6 +142,18 @@ int* repartitionCPU(int* histo,int size){
        
         return repartition;
 }
+
+vector<float> egalisationCPU(int* repartition, vector<float> v, int size) {
+    float* egalisation = new float[256];
+    for (int i = 0; i < 256; i++) {
+        egalisation[i] = float((255 * repartition[i])) / (256 * size);
+    }
+    for (int i = 0; i < v.size(); i++) {
+        v[i] = egalisation[int(v[i] * 256)];
+    }
+    return v;
+}
+
 int main(){
     cout<<"hello world"<<endl;
     Image img=Image();
@@ -172,22 +184,30 @@ int main(){
     }for ( itfloat=v.begin() ; itfloat !=v.end() ;++itfloat){
     cout<<"v"<<(*itfloat)<<endl;
     }*/
-   HSVtoRGB(h.data(),s.data(),v.data(),h.size(),rgb);
+    HSVtoRGB(h.data(),s.data(),v.data(),h.size(),rgb);
 
     /*for ( itInt=rgb.begin() ; itInt !=rgb.end() ;++itInt){
     cout<<"rgb"<<(*itInt)<<endl;
     }*/
+    /*
+    
     img.setRGB(rgb);
     img.setPixels();
     img.save("img/newPetitImage.png");
+    */
     int* histogram=new int[256];
     histogram=histoCPU(v.data(),v.size());
-     for(int i=0;i<256;i++){
-        }
     int* repartition=new int[256];
     repartition=repartitionCPU(histogram,256);
-     for(int i=0;i<256;i++){
+    v = egalisationCPU(repartition, v, rgb.size()); 
+    HSVtoRGB(h.data(), s.data(), v.data(), h.size(), rgb);
+    img.setRGB(rgb);
+    img.setPixels();
+    img.save("img/newPetitImage.png");
+    /*
+    for(int i=0;i<256;i++){
          cout<<"repar"<<i<<": "<<repartition[i]<<endl;
-        }
+    }
+    */
     
 }
