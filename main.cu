@@ -55,7 +55,6 @@ void RGBtoHSV (int* rgb, vector<float>& h, vector<float>& s, vector<float>& v,in
         // Calcul de V
         v.push_back(cMax);
       
-                   //   cout<<delta<<" "<<cMin<<" "<< cMax<<endl;
 
     }
 
@@ -150,10 +149,7 @@ vector<float> egalisationCPU(int* repartition, vector<float> v) {
         egalisation[i] = (255.0 / (256.0 * v.size())) *repartition[i];
     }
     for (int i = 0; i < v.size(); i++) {
-       //cout << v[i] << endl;
        result[i]=egalisation[(int(v[i] * 255))];
-             
-
     }
     return result;
 }
@@ -169,22 +165,13 @@ int main(){
     vector<float> v=vector<float>();
     rgb = img.getPixelRGB();    
    
-    
-
-    vector<int>::iterator itInt;
-   
-    vector<float>::iterator itfloat;
     RGBtoHSV(rgb.data(),h,s,v,rgb.size());
     
 
-
     int* histogram=new int[256];
     histogram=histoCPU(v.data(),v.size());
-    //cout << v.size() << endl;
-    //for (int i = 0; i < 256; i++) { cout << histogram[i] << endl; }
     int* repartition=new int[256];
     repartition=repartitionCPU(histogram,256);
-
 
     vector<float> newV=vector<float>();
     newV = egalisationCPU(repartition, v); 
@@ -194,13 +181,8 @@ int main(){
    
     img.setRGB(newRGB);
     img.setPixels();
-    img.save("img/testPetitImage.png");
+    img.save("img/testChateau.png");
 
-    for(int i=0;i<30;i++){
-         //cout<<"newRGB"<<i<<": "<<newRGB[i]<<endl;
-        //cout<<"ancienRGB"<<i<<": "<<rgb[i]<<endl;
-
-    }
     
     
 }
