@@ -123,7 +123,6 @@ int* histoCPU(float*v,int size){
         
         }
         for(int i=0;i<256;i++){
-                        cout<<"histo:"<<i<<": "<<histogram[i]<<endl;
         }
         return histogram;
 }
@@ -143,15 +142,23 @@ int* repartitionCPU(int* histo,int size){
         return repartition;
 }
 
-vector<float> egalisationCPU(int* repartition, vector<float> v, int size) {
+vector<float> egalisationCPU(int* repartition, vector<float> v, int rgbSize) {
     float* egalisation = new float[256];
+    vector<float> result= vector<float>(v.size());
+    for(int i=0;i<result.size();i++){
+        result[i]=0;
+    }
     for (int i = 0; i < 256; i++) {
-        egalisation[i] = float((255 * repartition[i])) / (256 * size);
+        egalisation[i] = (255.0 * repartition[i]) / (256.0 * rgbSize);
+
     }
+    int id;
     for (int i = 0; i < v.size(); i++) {
-        v[i] = egalisation[int(v[i] * 256)];
+       result[i]=egalisation[(int(v[i] * 255))];
+             
+
     }
-    return v;
+    return result;
 }
 
 int main(){
@@ -172,7 +179,7 @@ int main(){
     }*/
    
     RGBtoHSV(rgb.data(),h,s,v,rgb.size());
-    rgb=vector<int>();
+  // rgb=vector<int>();
     vector<float>::iterator itfloat;
     /* for ( itfloat=h.begin() ; itfloat != h.end() ;++itfloat){
     cout<<"h"<<(*itfloat)<<endl;
@@ -184,7 +191,7 @@ int main(){
     }for ( itfloat=v.begin() ; itfloat !=v.end() ;++itfloat){
     cout<<"v"<<(*itfloat)<<endl;
     }*/
-    HSVtoRGB(h.data(),s.data(),v.data(),h.size(),rgb);
+    //HSVtoRGB(h.data(),s.data(),v.data(),h.size(),rgb);
 
     /*for ( itInt=rgb.begin() ; itInt !=rgb.end() ;++itInt){
     cout<<"rgb"<<(*itInt)<<endl;
@@ -199,15 +206,23 @@ int main(){
     histogram=histoCPU(v.data(),v.size());
     int* repartition=new int[256];
     repartition=repartitionCPU(histogram,256);
-    v = egalisationCPU(repartition, v, rgb.size()); 
-    HSVtoRGB(h.data(), s.data(), v.data(), h.size(), rgb);
-    img.setRGB(rgb);
+
+
+    vector<float> newV=vector<float>();
+    newV = egalisationCPU(repartition, v, rgb.size()); 
+
+    vector<int> newRGB;
+    HSVtoRGB(h.data(), s.data(), newV.data(), h.size(), newRGB);
+   
+    img.setRGB(newRGB);
     img.setPixels();
     img.save("img/newPetitImage.png");
-    /*
-    for(int i=0;i<256;i++){
-         cout<<"repar"<<i<<": "<<repartition[i]<<endl;
+
+    for(int i=0;i<30;i++){
+         cout<<"newRGB"<<i<<": "<<newRGB[i]<<endl;
+        cout<<"ancienRGB"<<i<<": "<<rgb[i]<<endl;
+
     }
-    */
+    
     
 }
