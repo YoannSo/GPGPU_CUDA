@@ -50,6 +50,7 @@
         "vector": "cpp",
         "xhash": "cpp",
         "sstream": "cpp",
-        "algorithm": "cpp"
+        "algorithm": "cpp",
+        "iomanip": "cpp"
     }
 }

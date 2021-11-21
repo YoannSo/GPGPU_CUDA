@@ -6,7 +6,10 @@
 #include <algorithm>    // std::max
 #include "image.hpp"
 #include <math.h>
-
+#include <cstdlib>
+#include <iomanip>    
+#include "utils/chronoCPU.hpp"
+#include "utils/chronoGPU.hpp"
 #define PI 3.141592
 using namespace std;
 
@@ -158,30 +161,60 @@ int main(){
     cout<<"hello world"<<endl;
     Image img=Image();
     img.load("img/Chateau.png");
-  
+    float totalTime=0;
     vector<int> rgb;
     vector<float> h=vector<float>();
     vector<float> s=vector<float>();
     vector<float> v=vector<float>();
     rgb = img.getPixelRGB();    
-   
+
+    cout << "============================================"	<< endl;
+	cout << "         Sequential version on CPU          "	<< endl;
+	cout << "============================================"	<< endl;
+    ChronoCPU chrCPU;
+    chrCPU.start();
     RGBtoHSV(rgb.data(),h,s,v,rgb.size());
-    
+    chrCPU.stop();
+    totalTime += chrCPU.elapsedTime();
+    cout << "-> RGB to HSV done : " << fixed << setprecision(2) << chrCPU.elapsedTime() << " ms" << endl << endl;
+    chrCPU.start();
 
     int* histogram=new int[256];
     histogram=histoCPU(v.data(),v.size());
+    
+    chrCPU.stop();
+    cout << "-> Compute histogram done : " << fixed << setprecision(2) << chrCPU.elapsedTime() << " ms" << endl << endl;
+    totalTime += chrCPU.elapsedTime();
+    chrCPU.start();
+
     int* repartition=new int[256];
     repartition=repartitionCPU(histogram,256);
+
+    chrCPU.stop();
+    cout << "-> Compute Repartition done : " << fixed << setprecision(2) << chrCPU.elapsedTime() << " ms" << endl << endl;
+    totalTime += chrCPU.elapsedTime();    
+    chrCPU.start();
 
     vector<float> newV=vector<float>();
     newV = egalisationCPU(repartition, v); 
 
+    chrCPU.stop();
+    cout << "-> Compute Egalisation histograme done : " << fixed << setprecision(2) << chrCPU.elapsedTime() << " ms" << endl << endl;
+    totalTime += chrCPU.elapsedTime();
+    chrCPU.start();
+
     vector<int> newRGB;
     HSVtoRGB(h.data(), s.data(), newV.data(), h.size(), newRGB);
-   
+
+    chrCPU.stop();
+    cout << "-> HSV to RGB done : " << fixed << setprecision(2) << chrCPU.elapsedTime() << " ms" << endl << endl;
+    totalTime += chrCPU.elapsedTime();
+    cout << "-> ALL CPU DONE total time : " << fixed << setprecision(2) << totalTime<< " ms" << endl << endl;
+
     img.setRGB(newRGB);
     img.setPixels();
     img.save("img/testChateau.png");
+    
 
     
     
