@@ -10,6 +10,7 @@
 #include <iomanip>    
 #include "utils/chronoCPU.hpp"
 #include "utils/chronoGPU.hpp"
+#include "utils/common.hpp"
 #define PI 3.141592
 using namespace std;
 
@@ -24,7 +25,7 @@ vector<int> workOnGpu(vector<int> rgb);
 void RGBtoHSV_GPU(vector<int> rgb,vector<float>&h,vector<float>&s,vector<float>&v);
 int* computeHistogram_GPU(vector<float>v);
 int* repartition_GPU(int* histo,int size);
-vector<float> egalisation_GPU(int* repartition,vector<float>v);
+__global__ void egalisation_GPU(const int* dev_repartition, float* dev_v, const float* vbis, const int v_size);
 void HSVtoRGB_GPU(vector<float> h,vector<float>s,vector<float>v,vector<int>&rgb);
 
 
@@ -242,7 +243,10 @@ vector<float> egalisation_CPU(int* repartition, vector<float> v) {
 }
 
 
+
 //////////////////////////////////////////////// GPU PART //////////////////////////////////////////////////
+
+
 vector<int> workOnGpu(vector<int> rgb){
     float totalTime=0;
     vector<float> h=vector<float>();
@@ -259,37 +263,57 @@ vector<int> workOnGpu(vector<int> rgb){
 	cout << "============================================"	<< endl;
     
     chrGPU.start();
-    RGBtoHSV_GPU(rgb,h,s,v);
+    //RGBtoHSV_GPU(rgb,h,s,v);
+    RGBtoHSV_CPU(rgb.data(), h, s, v, rgb.size());
     chrGPU.stop();
     cout << "-> RGB to HSV done : " << fixed << setprecision(2) << chrGPU.elapsedTime() << " ms" << endl << endl;
     totalTime += chrGPU.elapsedTime();    
   
     chrGPU.start();
-    histo=computeHistogram_GPU(v);
+    histo= histo_CPU(v.data(),v.size());
     chrGPU.stop();
     cout << "-> Compute histogram done : " << fixed << setprecision(2) << chrGPU.elapsedTime() << " ms" << endl << endl;
     totalTime += chrGPU.elapsedTime();
 
     chrGPU.start();
-    repartition=repartition_GPU(histo,256);
+    repartition=repartition_CPU(histo,256);
     chrGPU.stop();
     cout << "-> Compute Repartition done : " << fixed << setprecision(2) << chrGPU.elapsedTime() << " ms" << endl << endl;
     totalTime += chrGPU.elapsedTime();
-
+   
+    float* result =v.data();
+    float* vbis = v.data();
+    float* dev_v;
+    int* dev_repartition;
+    HANDLE_ERROR(cudaMalloc(&dev_v, v.size() * sizeof(float)));
+    HANDLE_ERROR(cudaMalloc(&vbis, v.size() * sizeof(float)));
+    HANDLE_ERROR(cudaMalloc(&dev_repartition,256 * sizeof(int)));
+    HANDLE_ERROR(cudaMemcpy(dev_repartition, repartition, 256*sizeof(int), cudaMemcpyHostToDevice));
+    HANDLE_ERROR(cudaMemcpy(vbis, v.data(), v.size() * sizeof(int), cudaMemcpyHostToDevice));
     chrGPU.start();
-    newV=egalisation_GPU(histo,v);
+    egalisation_GPU <<<32,32>>>(dev_repartition,dev_v,vbis,v.size());
     chrGPU.stop();
+    
+    HANDLE_ERROR(cudaMemcpy(result, dev_v, (v.size()*sizeof(float)), cudaMemcpyDeviceToHost));
+    
+
     cout << "-> Compute Egalisation done : " << fixed << setprecision(2) << chrGPU.elapsedTime() << " ms" << endl << endl;
     totalTime += chrGPU.elapsedTime();
-
+    
     chrGPU.start();
-    HSVtoRGB_GPU(h,s,v,newRGB);
+    HSVtoRGB_CPU(h.data(),s.data(),result,v.size(),newRGB);
     chrGPU.stop();
     cout << "-> HSV to FINAL RGB done : " << fixed << setprecision(2) << chrGPU.elapsedTime() << " ms" << endl << endl;
     totalTime += chrGPU.elapsedTime();
     cout << "-> ALL CPU DONE total time : " << fixed << setprecision(2) << totalTime<< " ms" << endl << endl;
+    
+
+    HANDLE_ERROR(cudaFree(dev_v));
+    HANDLE_ERROR(cudaFree(vbis));
+    HANDLE_ERROR(cudaFree(dev_repartition));
     return newRGB;
 }
+/*
 void RGBtoHSV_GPU(vector<int> rgb,vector<float>&h,vector<float>&s,vector<float>&v){
 
 }
@@ -299,9 +323,25 @@ int* computeHistogram_GPU(vector<float>v){
 int* repartition_GPU(int* histo,int size){
 
 }
-vector<float> egalisation_GPU(int* repartition,vector<float>v){
-
+*/
+__global__
+void egalisation_GPU(const int* dev_repartition, float* dev_v, const float* vbis ,const int v_size){
+    
+    int tid = blockIdx.x * blockDim.x + threadIdx.x;
+    
+    while (tid < v_size) {
+        dev_v[tid] = (255.0 / (256.0 * v_size)) * dev_repartition[int(vbis[tid] * 255)];
+        tid += gridDim.x * blockDim.x;
+        
+    }
+    
+    
+    
+    
 }
+/*
 void HSVtoRGB_GPU(vector<float> h,vector<float>s,vector<float>v,vector<int>&rgb){
 
 }
+
+*/
