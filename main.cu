@@ -22,8 +22,15 @@ int* repartition_CPU(int* histo,int size);
 vector<float> egalisation_CPU(int* repartition, vector<float> v);
 
 vector<int> workOnGpu(vector<int> rgb);
-void RGBtoHSV_GPU(vector<int> rgb,vector<float>&h,vector<float>&s,vector<float>&v);
+__global__ void RGBtoHSV_GPU(const int* dev_rgb,float* dev_h,float* dev_s,float* dev_v,int rgbSize);
+void launchRGBtoHSV_GPU(vector<int> rgb,vector<float>&h,vector<float>&s,vector<float>&v);
+
+
 int* computeHistogram_GPU(vector<float>v);
+
+void launchRepartition_GPU(int* dev_histo, int* dev_repartition, int size);
+void launchEgalisation_GPU(const int* dev_repartition, float* dev_v, const float* vbis, const int v_size);
+
 __global__ void repartition_GPU(int* dev_histo, int* dev_repartition, int size);
 __global__ void egalisation_GPU(const int* dev_repartition, float* dev_v, const float* vbis, const int v_size);
 void HSVtoRGB_GPU(vector<float> h,vector<float>s,vector<float>v,vector<int>&rgb);
@@ -262,10 +269,36 @@ vector<int> workOnGpu(vector<int> rgb){
 	cout << "         Parallel version on GPU          "	<< endl;
 	cout << "============================================"	<< endl;
     
+    float* dev_h;
+    float* dev_s;
+    float* dev_v2;
+    int * dev_rgb;
+    
+    
+
+    HANDLE_ERROR(cudaMalloc(&dev_rgb, rgb.size() * sizeof(float)));
+    HANDLE_ERROR(cudaMalloc(&dev_h, (rgb.size()/3) * sizeof(float)));
+    HANDLE_ERROR(cudaMalloc(&dev_s, (rgb.size()/3) * sizeof(float)));
+    HANDLE_ERROR(cudaMalloc(&dev_v2, (rgb.size()/3) * sizeof(float)));
+
+    HANDLE_ERROR(cudaMemcpy(dev_rgb, rgb.data(), rgb.size() * sizeof(int), cudaMemcpyHostToDevice));
+
     chrGPU.start();
+    RGBtoHSV_GPU<<<32,32>>>(dev_rgb,dev_h,dev_s,dev_v2,rgb.size()); 
+    cout<<"finito"<<endl;
     //RGBtoHSV_GPU(rgb,h,s,v);
-    RGBtoHSV_CPU(rgb.data(), h, s, v, rgb.size());
     chrGPU.stop();
+    RGBtoHSV_CPU(rgb.data(), h, s, v, rgb.size());
+
+    float* _h=new float[rgb.size()/3];
+    float* _s=h.data();
+    float* _v=h.data();
+
+    HANDLE_ERROR(cudaMemcpy(_h, dev_h, h.size()*sizeof(float), cudaMemcpyDeviceToHost));
+    HANDLE_ERROR(cudaMemcpy(_s, dev_s, ((rgb.size()/3)*sizeof(float)), cudaMemcpyDeviceToHost));
+    HANDLE_ERROR(cudaMemcpy(_v, dev_v2, ((rgb.size()/3)*sizeof(float)), cudaMemcpyDeviceToHost));
+    cout<<_h<<_s<<_v<<endl;
+
     cout << "-> RGB to HSV done : " << fixed << setprecision(2) << chrGPU.elapsedTime() << " ms" << endl << endl;
     totalTime += chrGPU.elapsedTime();    
   
@@ -279,10 +312,8 @@ vector<int> workOnGpu(vector<int> rgb){
     int* dev_histo;
     float* vbis = v.data();
     
-
     HANDLE_ERROR(cudaMalloc(&dev_histo, v.size() * sizeof(int)));
-    HANDLE_ERROR(cudaMalloc(&dev_repartition, 256 * sizeof(int)));
-    
+    HANDLE_ERROR(cudaMalloc(&dev_repartition, 256 * sizeof(int)));    
     HANDLE_ERROR(cudaMemcpy(dev_histo, histo, 256 * sizeof(int), cudaMemcpyHostToDevice));
 
     chrGPU.start();
@@ -314,21 +345,75 @@ vector<int> workOnGpu(vector<int> rgb){
     totalTime += chrGPU.elapsedTime();
     cout << "-> ALL CPU DONE total time : " << fixed << setprecision(2) << totalTime<< " ms" << endl << endl;
     
-
     HANDLE_ERROR(cudaFree(dev_v));
     HANDLE_ERROR(cudaFree(vbis));
     HANDLE_ERROR(cudaFree(dev_histo));
     HANDLE_ERROR(cudaFree(dev_repartition));
+    HANDLE_ERROR(cudaFree(dev_v2));
+    HANDLE_ERROR(cudaFree(dev_rgb));
+    HANDLE_ERROR(cudaFree(dev_h));
+    HANDLE_ERROR(cudaFree(dev_s));
     return newRGB;
 }
-/*
-void RGBtoHSV_GPU(vector<int> rgb,vector<float>&h,vector<float>&s,vector<float>&v){
 
+void launchRGBtoHSV_GPU(vector<int> rgb,vector<float>&h,vector<float>&s,vector<float>&v){
+  
 }
-int* computeHistogram_GPU(vector<float>v){
+
+__global__ void RGBtoHSV_GPU(const int* dev_rgb,float* dev_h,float* dev_s,float* dev_v,int rgbSize){// 1threads =rgb
+    int tid =blockIdx.x * blockDim.x + threadIdx.x*3;
+   while (tid < rgbSize) {
+    float r=dev_rgb[tid]/255;
+    float g=dev_rgb[tid+1]/255;
+    float b=dev_rgb[tid+2]/255;
+    float cMax;
+    float cMin;
+    float delta;
+    cMax=max(r,g);
+    cMax=max(cMax,b);
+    cMin=min(r,g);
+    cMin=min(cMin,b);
+    delta = cMax-cMin;
+    // Calcul de H
+        float hue;
+        if(cMax == r){
+            hue=60* ((g - b) / delta );
+        }else if (cMax == g){
+
+            hue=60*(((b-r)/delta)+2);//Calcul a faire
+        }
+        else if(cMax== b){
+
+           hue=60*(((r-g)/delta)+4);
+        }
+        else {
+
+            hue=0.0;//Calcul a faire
+        }
+        if(hue<0){
+
+            hue+=360;
+        }
+        dev_h[tid/3]=hue;
+         // Calcul de S
+        if (cMax>0.0){
+
+            dev_s[tid/3]=delta/cMax;
+        } else {
+
+            dev_s[tid/3]=0;
+        }
+        // Calcul de V
+        dev_v[tid/3]=cMax;
+        tid += gridDim.x * blockDim.x;
+
+   }
+}
+/*int* computeHistogram_GPU(vector<float>v){
 
 }
 */
+
 __global__
 void repartition_GPU(int* dev_histo,int* dev_repartition, int size) {
     int tid = blockIdx.x * blockDim.x + threadIdx.x;
