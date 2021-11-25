@@ -34,7 +34,7 @@ void Image::load( const std::string & p_path )
 }
 
 void Image::save( const std::string & p_path ) const
-{
+{   
     stbi_write_png( p_path.c_str(), _width, _height, _nbChannels, _pixels, _width * _nbChannels );    
 }
 vector<int> Image::getPixelRGB( ) 
@@ -49,4 +49,9 @@ void Image::setPixels(){
     }
 void Image::setRGB(vector<int> rgb){
     this->_pixelRGB=rgb;
+}
+void Image::setRGB(int* rgb){
+    for(int i=0;i<sizeof(rgb)/sizeof(int);i++){
+        this->_pixelRGB[i]=rgb[i];
+    }
 }
