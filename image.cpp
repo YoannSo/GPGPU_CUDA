@@ -20,7 +20,7 @@ Image::~Image() { delete[] _pixels; }
 void Image::load( const std::string & p_path )
 {
     _pixels = stbi_load( p_path.c_str(), &_width, &_height, &_nbChannels, 0 );
-    printf("%d %d %d \n",this->_width,this->_height,this->_nbChannels);
+    //printf("%d %d %d \n",this->_width,this->_height,this->_nbChannels);
         
     for(int i=0;i<_width*_height*_nbChannels;i++){
       this->_pixelRGB.push_back((int)_pixels[i]);
