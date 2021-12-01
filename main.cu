@@ -26,7 +26,7 @@ __global__ void RGBtoHSV_GPU(int* dev_rgb,float* dev_h,float* dev_s,float* dev_v
 
 
 __global__ void computeHistogram_GPU(const float* dev_v, int* dev_repartition, const int v_size);
-
+__global__ void computeHistogram_GPU_sharedMemoryVersion(const float* dev_v, int* dev_histo, const int v_size);
 __global__ void repartition_GPU(int* dev_histo, int* dev_repartition, int size);
 __global__ void egalisation_GPU(const int* dev_repartition, float* dev_v,float* vbis, const int v_size);
 __global__ void HSVtoRGB_GPU(float* h,float* s,float* v,int* rgb,int HSVsize);
@@ -314,7 +314,8 @@ int* workOnGpu(vector<int> rgb){
     HANDLE_ERROR(cudaMemcpy(dev_histo, temp, 256*sizeof(int), cudaMemcpyHostToDevice));
     nbBlocks=nbPixels/(1024*3)+1;
     chrGPU.start();
-    computeHistogram_GPU <<<32,32 >>>(dev_v, dev_histo,HSVsize);
+    computeHistogram_GPU <<<32,64 >>>(dev_v, dev_histo,HSVsize);
+    //computeHistogram_GPU_sharedMemoryVersion <<<32, 64 >>> (dev_v, dev_histo, HSVsize);
     chrGPU.stop();
 
 
@@ -478,6 +479,27 @@ void computeHistogram_GPU(const float* dev_v , int* dev_histo, const int v_size)
          tid += gridDim.x * blockDim.x;
      }
 }
+
+__global__
+void computeHistogram_GPU_sharedMemoryVersion(const float* dev_v, int* dev_histo, const int v_size) {
+    int tid = blockIdx.x * blockDim.x + threadIdx.x;
+    __shared__ int histo[256];
+    if (tid < 256) {
+        dev_histo[tid] = 0;
+    }
+    __syncthreads();
+    while (tid < v_size) {
+        histo[int(dev_v[tid] * 255)]++;
+        tid += gridDim.x * blockDim.x;
+    }
+    __syncthreads();
+    if (threadIdx.x == 0) {
+        for (int i = 0; i < 256; i++) {
+            atomicAdd(&dev_histo[i], histo[i]);
+        }
+    }
+}
+
 
 
 __global__
