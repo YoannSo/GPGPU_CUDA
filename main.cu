@@ -308,14 +308,14 @@ int* workOnGpu(vector<int> rgb){
     cout << "-> RGB to HSV done : " << fixed << setprecision(2) << chrGPU.elapsedTime() << " ms" << endl << endl;
     totalTime += chrGPU.elapsedTime();    
     int * temp=new int[256];
-   for(int i=0;i<256;i++){
-       temp[i]=0;
-   }
+    for(int i=0;i<256;i++){
+        temp[i]=0;
+    }
     HANDLE_ERROR(cudaMemcpy(dev_histo, temp, 256*sizeof(int), cudaMemcpyHostToDevice));
     nbBlocks=nbPixels/(1024*3)+1;
     chrGPU.start();
-    computeHistogram_GPU <<<32,64 >>>(dev_v, dev_histo,HSVsize);
-    //computeHistogram_GPU_sharedMemoryVersion <<<32, 64 >>> (dev_v, dev_histo, HSVsize);
+    //computeHistogram_GPU <<<nbBlocks,1024 >>>(dev_v, dev_histo,HSVsize);
+    computeHistogram_GPU_sharedMemoryVersion <<<nbBlocks, 256 >>> (dev_v, dev_histo, HSVsize);
     chrGPU.stop();
 
 
@@ -324,7 +324,7 @@ int* workOnGpu(vector<int> rgb){
 
 
     chrGPU.start();
-    repartition_GPU<<<32,32>>>(dev_histo,dev_repartition,256); 
+    repartition_GPU<<<1, 256 >>>(dev_histo,dev_repartition,256);
     chrGPU.stop();
     cout << "-> Compute Repartition done : " << fixed << setprecision(2) << chrGPU.elapsedTime() << " ms" << endl << endl;
     totalTime += chrGPU.elapsedTime();
@@ -333,7 +333,7 @@ int* workOnGpu(vector<int> rgb){
     
        
     chrGPU.start();
-    egalisation_GPU <<<32,32>>>(dev_repartition,dev_v,newV,HSVsize);
+    egalisation_GPU <<<nbBlocks, 256 >>>(dev_repartition,dev_v,newV,HSVsize);
     chrGPU.stop();
 
 
@@ -341,7 +341,7 @@ int* workOnGpu(vector<int> rgb){
     totalTime += chrGPU.elapsedTime();
     nbBlocks=nbPixels/(1024*3)+1;
     chrGPU.start();
-    HSVtoRGB_GPU<<<32,1024>>>(dev_h,dev_s,newV,newRGB,HSVsize); 
+    HSVtoRGB_GPU<<<nbBlocks,1024>>>(dev_h,dev_s,newV,newRGB,HSVsize);
     chrGPU.stop();
     float* test = new float[HSVsize];
     HANDLE_ERROR(cudaMemcpy(test, newV, HSVsize*sizeof(float), cudaMemcpyDeviceToHost));
@@ -485,11 +485,12 @@ void computeHistogram_GPU_sharedMemoryVersion(const float* dev_v, int* dev_histo
     int tid = blockIdx.x * blockDim.x + threadIdx.x;
     __shared__ int histo[256];
     if (tid < 256) {
+        histo[tid] = 0;
         dev_histo[tid] = 0;
     }
     __syncthreads();
     while (tid < v_size) {
-        histo[int(dev_v[tid] * 255)]++;
+        atomicAdd(&histo[int(dev_v[tid] * 255)], 1);
         tid += gridDim.x * blockDim.x;
     }
     __syncthreads();
