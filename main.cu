@@ -266,7 +266,8 @@ int* workOnGpu(vector<int> rgb){
     vector<float> vectorh=vector<float>();
     vector<float> vectors=vector<float>();
     vector<float> vectorv=vector<float>();
-
+    int nbPixels=rgb.size()/3+1;
+    int nbBlocks;
     float* h=new float[HSVsize];
     float* s=new float[HSVsize];
     float* v=new float[HSVsize];
@@ -298,16 +299,20 @@ int* workOnGpu(vector<int> rgb){
     HANDLE_ERROR(cudaMalloc(&newV, HSVsize * sizeof(float)));
     
     HANDLE_ERROR(cudaMemcpy(dev_rgb, rgb.data(), rgb.size() * sizeof(int), cudaMemcpyHostToDevice));
-
     chrGPU.start();
-    RGBtoHSV_GPU<<<32,32>>>(dev_rgb,dev_h,dev_s,dev_v,HSVsize); 
+    nbBlocks=nbPixels/(1024)+1;
+
+    RGBtoHSV_GPU<<<nbBlocks,1024>>>(dev_rgb,dev_h,dev_s,dev_v,HSVsize); 
     chrGPU.stop();  
    
     cout << "-> RGB to HSV done : " << fixed << setprecision(2) << chrGPU.elapsedTime() << " ms" << endl << endl;
     totalTime += chrGPU.elapsedTime();    
-  
-   
-    
+    int * temp=new int[256];
+   for(int i=0;i<256;i++){
+       temp[i]=0;
+   }
+    HANDLE_ERROR(cudaMemcpy(dev_histo, temp, 256*sizeof(int), cudaMemcpyHostToDevice));
+    nbBlocks=nbPixels/(1024*3)+1;
     chrGPU.start();
     computeHistogram_GPU <<<32,32 >>>(dev_v, dev_histo,HSVsize);
     chrGPU.stop();
@@ -315,7 +320,6 @@ int* workOnGpu(vector<int> rgb){
 
     cout << "-> Compute histogram done : " << fixed << setprecision(2) << chrGPU.elapsedTime() << " ms" << endl << endl;
     totalTime += chrGPU.elapsedTime();
-
 
 
     chrGPU.start();
@@ -334,8 +338,9 @@ int* workOnGpu(vector<int> rgb){
 
     cout << "-> Compute Egalisation done : " << fixed << setprecision(2) << chrGPU.elapsedTime() << " ms" << endl << endl;
     totalTime += chrGPU.elapsedTime();
+    nbBlocks=nbPixels/(1024*3)+1;
     chrGPU.start();
-    HSVtoRGB_GPU<<<32,32>>>(dev_h,dev_s,newV,newRGB,HSVsize); 
+    HSVtoRGB_GPU<<<32,1024>>>(dev_h,dev_s,newV,newRGB,HSVsize); 
     chrGPU.stop();
     float* test = new float[HSVsize];
     HANDLE_ERROR(cudaMemcpy(test, newV, HSVsize*sizeof(float), cudaMemcpyDeviceToHost));
@@ -360,7 +365,6 @@ int* workOnGpu(vector<int> rgb){
 
 __global__ void RGBtoHSV_GPU( int* dev_rgb,float* dev_h,float* dev_s,float* dev_v,int rgbSize){// 1threads =rgb
     int tid =blockIdx.x * blockDim.x + threadIdx.x;
-    tid=tid;
     while (tid < rgbSize) {
        float r,g,b;
        float cMax,cMin,delta;
@@ -468,10 +472,7 @@ int tid =blockIdx.x * blockDim.x + threadIdx.x;
 __global__
 void computeHistogram_GPU(const float* dev_v , int* dev_histo, const int v_size){
      int tid = blockIdx.x * blockDim.x + threadIdx.x;
-     if (tid < 256) {
-         dev_histo[tid] = 0;
-     }
-     __syncthreads();
+   
      while (tid < v_size) {
          atomicAdd(&dev_histo[int(dev_v[tid] * 255)],1);
          tid += gridDim.x * blockDim.x;
