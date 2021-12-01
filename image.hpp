@@ -19,6 +19,7 @@ class Image
 	std::vector < int > getPixelRGB();
 	void setPixels();
 	void setRGB(std::vector<int> rgb);
+	void setRGB(int* rgb);
   public: // All public!
 	int				_width		= 0;
 	int				_height		= 0;
