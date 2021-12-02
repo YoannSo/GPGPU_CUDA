@@ -60,7 +60,7 @@ int* workOnGpu(vector<int> rgb){
     HANDLE_ERROR(cudaMemcpy(dev_histo, temp, 256*sizeof(int), cudaMemcpyHostToDevice));
     nbBlocks=nbPixels/(1024*3)+1;
     chrGPU.start();
-    computeHistogram_GPU_sharedMemoryVersion <<<32,32 >>>(dev_v, dev_histo,HSVsize);
+    computeHistogram_GPU_sharedMemoryVersion <<<64, 64 >>>(dev_v, dev_histo,HSVsize);
     //computeHistogram_GPU <<<nbBlocks,1024 >>>(dev_v, dev_histo,HSVsize);
     chrGPU.stop();
 
@@ -230,11 +230,6 @@ __global__
 void computeHistogram_GPU_sharedMemoryVersion(const float* dev_v, int* dev_histo, const int v_size) {
     int tid = blockIdx.x * blockDim.x + threadIdx.x;
     __shared__ int histo[256];
-    if (tid < 256) {
-        histo[tid] = 0;
-        dev_histo[tid] = 0;
-    }
-    __syncthreads();
     while (tid < v_size) {
         atomicAdd(&histo[int(dev_v[tid] * 255)], 1);
         tid += gridDim.x * blockDim.x;
@@ -245,6 +240,7 @@ void computeHistogram_GPU_sharedMemoryVersion(const float* dev_v, int* dev_histo
             atomicAdd(&dev_histo[i], histo[i]);
         }
     }
+    __syncthreads();
 }
 
 
