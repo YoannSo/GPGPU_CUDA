@@ -51,6 +51,14 @@
         "xhash": "cpp",
         "sstream": "cpp",
         "algorithm": "cpp",
-        "iomanip": "cpp"
+        "iomanip": "cpp",
+        "array": "cpp",
+        "bitset": "cpp",
+        "xtree": "cpp",
+        "__hash_table": "cpp",
+        "__split_buffer": "cpp",
+        "__tree": "cpp",
+        "map": "cpp",
+        "string_view": "cpp"
     }
 }
